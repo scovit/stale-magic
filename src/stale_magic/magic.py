@@ -29,36 +29,34 @@ def _cell_hash(cell: str) -> str:
     return hashlib.sha256(_norm_cell_text(cell).encode("utf-8")).hexdigest()
 
 
-def _parse_rule(line: str) -> Tuple[List[Path], List[str]]:
+def _parse_rule(line: str) -> Tuple[List[str], List[str]]:
     """
     Parse syntax:
-        OUT1 OUT2 ... : IN1 IN2 ...
+        OUT1 [OUT2 ...] : [IN1 IN2 ...]
 
     Supports quoting via shlex:
         "out file.parquet" : "in file.csv"
 
     Returns:
-      - outputs as Paths
+      - outputs as raw strings (so we can expand globs later)
       - inputs as raw strings (so we can expand globs later)
     """
     tokens = shlex.split(line)
     if ":" not in tokens:
         raise ValueError(
-            "Usage: %%rule OUT1 [OUT2 ...] : IN1 [IN2 ...]\n"
+            "Usage: %%rule OUT1 [OUT2 ...] : [IN1 IN2 ...]\n"
             'Example: %%rule "build/out 1.parquet" build/out2.json : data/raw/*.csv data/**/*.json'
         )
     i = tokens.index(":")
     out_tokens = tokens[:i]
     in_tokens = tokens[i + 1 :]
-    if not out_tokens or not in_tokens:
-        raise ValueError("Both outputs and inputs are required: %%rule OUT... : IN...")
 
-    outputs = [Path(t) for t in out_tokens]
+    outputs_raw = list(out_tokens)
     inputs_raw = list(in_tokens)
-    return outputs, inputs_raw
+    return outputs_raw, inputs_raw
 
 
-def _expand_inputs(inputs_raw: List[str]) -> List[Path]:
+def _expand_globs(globs_raw: List[str]) -> List[Path]:
     """
     Expand glob patterns in inputs. Supports ** (recursive) via glob.glob(..., recursive=True).
     - If a token matches nothing and contains glob characters, raises FileNotFoundError.
@@ -69,7 +67,7 @@ def _expand_inputs(inputs_raw: List[str]) -> List[Path]:
     def has_glob(s: str) -> bool:
         return any(ch in s for ch in ["*", "?", "["]) or "**" in s
 
-    for tok in inputs_raw:
+    for tok in globs_raw:
         if has_glob(tok):
             matches = glob.glob(tok, recursive=True)
             if not matches:
@@ -210,8 +208,9 @@ class StaleMagics(Magics):
 
     @cell_magic
     def rule(self, line: str, cell: str):
-        outputs, inputs_raw = _parse_rule(line)
-        inputs = _expand_inputs(inputs_raw)
+        outputs_raw, inputs_raw = _parse_rule(line)
+        outputs = _expand_globs(outputs_raw)
+        inputs = _expand_globs(inputs_raw)
 
         # Validate inputs exist (post-expansion)
         missing_inputs = [str(p) for p in inputs if not p.exists()]
