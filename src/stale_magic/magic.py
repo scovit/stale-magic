@@ -197,7 +197,7 @@ def _decide(outputs: List[Path], inputs: List[Path], cell_hash: str, cache: dict
 class StaleMagics(Magics):
     """
     Usage:
-        %%rule OUT1 [OUT2 ...] : IN1 [IN2 ...]   (inputs can include globs like data/*.csv or data/**/x.json)
+        %%rule OUT1 [OUT2 ...] : [IN1 IN2 ...]   (can include globs like data/*.csv or data/**/x.json)
 
     Stores robust state in:
         .stale_cache/<rule_id>.json
