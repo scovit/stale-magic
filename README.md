@@ -23,7 +23,7 @@ In a notebook (or IPython):
 Syntax:
 
 ```python
-%%rule OUT1 [OUT2 ...] : IN1 [IN2 ...]
+%%rule OUT1 [OUT2 ...] : [IN1 IN2 ...]
 # your Python code that (re)builds OUT* from IN*
 ```
 
